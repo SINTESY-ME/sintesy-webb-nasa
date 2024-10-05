@@ -4,30 +4,59 @@ import uvicorn
 import threading
 
 app, rt = fast_app()
-cardcss = "font-family: 'Arial Black', 'Arial Bold', Gadget, sans-serif; perspective: 1500px;"
+cardcss = """
+    font-family: 'Arial Black', 'Arial Bold', Gadget, sans-serif;
+    perspective: 1500px;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr); /* 6 colunas na grid */
+    grid-gap: 20px;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    padding: 20px;
+"""
+
 def card_3d_demo():
-
     """This is a standalone isolated Python component.
-
     Behavior and styling is scoped to the component."""
-
+    
     def card_3d(text, background, amt, left_align):
-
-        # JS and CSS can be defined inline or in a file
-
+        # JS e CSS podem ser definidos inline ou em um arquivo
         scr = ScriptX('card3d.js', amt=amt)
-
-        align='left' if left_align else 'right'
-
+        align = 'left' if left_align else 'right'
+        
+        # CSS para centralizar o botão dentro do card, ajustando a imagem PNG
+        button_css = """
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 50px;
+            height: 50px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-image: url('https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSltrgFgRcImcclKMY6j0HnfJw1o_FaLn0FQQ');
+            background-size: contain;
+            background-position: center;  /* Centraliza a imagem no botão */
+            background-repeat: no-repeat;
+            background-color: #ffffff00;
+            border-radius: 50px;
+            border: none;
+        """
+        
         sty = StyleX('card3d.css', background=f'url({background})', align=align)
+        
+        return Div(Button(id='PREI', style=button_css), text, Div(), sty, scr)
 
-        return Div(text, Div(), sty, scr)
+    # Criação de múltiplos cards
+    cards = [
+        card_3d(f"Card {i+1}", f"output{i+1}.gif", amt=1.5, left_align=(i % 2 == 0))
+        for i in range(20)  # Alterar esse valor para adicionar mais ou menos cards
+    ]
 
-    # Design credit: https://codepen.io/markmiro/pen/wbqMPa
-
-    card = card_3d("Mouseover me", 'output.gif', amt=1.5, left_align=True)
-
-    return Div(card, style=cardcss)
+    # Retorna os cards em um contêiner com estilo definido
+    return Div(*cards, style=cardcss)
 
 # Função que será executada a cada 5 segundos
 async def tarefa_periodica():
