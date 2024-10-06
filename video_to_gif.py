@@ -2,10 +2,11 @@ from moviepy.editor import VideoFileClip
 videoClipe = VideoFileClip
 def video_to_gif(videopath): 
     videoClipe = VideoFileClip(videopath)
-    inicio = 5
-    fim = 10
+    inicio = 0
+    fim = 2
     fps = 24
 
-    videoClipe.subclip(inicio, fim).write_gif(videopath.replace('.mp4', '.gif'))
+    gif_path = videopath.replace('.mp4', '.gif').replace('videos', 'gifs')
+    videoClipe.subclip(inicio, fim).write_gif(gif_path)
+    return gif_path
 
-#video_to_gif("video.mp4")

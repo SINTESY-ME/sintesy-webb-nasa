@@ -2,6 +2,9 @@ import asyncio
 from fasthtml.common import *
 import uvicorn
 import threading
+from db import db
+from tinydb import Query
+
 
 app, rt = fast_app()
 cardcss = """
@@ -20,7 +23,7 @@ def card_3d_demo():
     """This is a standalone isolated Python component.
     Behavior and styling is scoped to the component."""
     
-    def card_3d(text, background, amt, left_align):
+    def card_3d(text, background, amt, left_align, item):
         # JS e CSS podem ser definidos inline ou em um arquivo
         scr = ScriptX('card3d.js', amt=amt)
         align = 'left' if left_align else 'right'
@@ -30,33 +33,95 @@ def card_3d_demo():
             display: flex;
             justify-content: center;
             align-items: center;
-            width: 50px;
-            height: 50px;
+            width: 20px;
+            height: 20px;
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background-image: url('https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSltrgFgRcImcclKMY6j0HnfJw1o_FaLn0FQQ');
+            background-image: url('https://www.gov.br/pt-br/midias-agorabrasil/play.png/@@images/image.png');
             background-size: contain;
             background-position: center;  /* Centraliza a imagem no botão */
             background-repeat: no-repeat;
             background-color: #ffffff00;
-            border-radius: 50px;
             border: none;
         """
         
         sty = StyleX('card3d.css', background=f'url({background})', align=align)
         
-        return Div(Button(id='PREI', style=button_css), text, Div(), sty, scr)
+        # O botão agora redireciona para a rota /play, passando o nome da imagem como parâmetro
+        return Div(A(Button(id='PREI', style=button_css), href=f'/play?name={item["image_name"]}'), text, Div(), sty, scr)
 
     # Criação de múltiplos cards
-    cards = [
-        card_3d(f"Card {i+1}", f"output{i+1}.gif", amt=1.5, left_align=(i % 2 == 0))
-        for i in range(20)  # Alterar esse valor para adicionar mais ou menos cards
-    ]
+    cards = []
+    for item in db.all():
+        if item.get("music_path"):
+            cards.append(card_3d(f"", item["gif_path"], amt=1.5, left_align=True, item=item))
 
-    # Retorna os cards em um contêiner com estilo definido
-    return Div(*cards, style=cardcss)
+    for item in db.all():
+        if item.get("music_path"):
+            cards.append(card_3d(f"", item["gif_path"], amt=1.5, left_align=True, item=item))
+
+    for item in db.all():
+        if item.get("music_path"):
+            cards.append(card_3d(f"", item["gif_path"], amt=1.5, left_align=True, item=item))
+
+    # Adiciona a imagem centralizada no início da página
+    central_image_style = """
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 20px;
+    """
+    
+    central_image = Img(src="logo.png", style=central_image_style)
+
+    return Div(central_image, *cards, style=cardcss)
+
+# Rota padrão
+@rt('/')
+def get():
+    return Div(card_3d_demo())
+
+# Nova rota para a página de exibição /play
+@rt('/play')
+def play_page(req):
+    # Obtém o parâmetro "name" da URL
+    image_name = req.query_params.get('name')
+
+    
+    # Busca o item no banco de dados com o nome da imagem
+    item = db.get(Query().image_name == image_name)
+    
+    if not item:
+        return Div("Item não encontrado")
+
+    # Cria a página com o fundo de GIF, vídeo e música
+    video_style = """
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100%;
+        height:500px;
+    """
+    
+    music_tag = f'<audio src="{item["music_path"]}" autoplay loop></audio>'
+    video_tag = Video(src=item['video_path'], autoplay=True, controls=True, loop=True, style=video_style)
+    
+    # Retorna a página com o fundo sendo o gif_path
+    return Div(
+        NotStr(music_tag),
+        video_tag,
+        style=f"""
+            background-image: url({item['gif_path']});
+            background-size: cover;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        """
+    )
 
 # Função que será executada a cada 5 segundos
 async def tarefa_periodica():
@@ -64,11 +129,6 @@ async def tarefa_periodica():
     while True:
         print("Função executada a cada 5 segundos")
         await asyncio.sleep(5)  # Espera 5 segundos
-
-# Rota padrão
-@rt('/')
-def get():
-    return Div(card_3d_demo())
 
 # Função para rodar o servidor FastHTML usando Uvicorn diretamente em uma thread
 def start_serve():
