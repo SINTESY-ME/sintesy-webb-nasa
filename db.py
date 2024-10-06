@@ -2,7 +2,6 @@ import os
 import random
 from tinydb import TinyDB, Query
 
-# Inicializa o banco de dados
 db = TinyDB('db.json')
 
 def sort_images(image_folder='images', size=5):

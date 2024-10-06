@@ -13,7 +13,6 @@ def upload_to_gemini(path, mime_type=None):
   return file
 
 def generate_prompt_from_image(image_path):
-    # Create the model
     generation_config = {
     "temperature": 1,
     "top_p": 0.95,
@@ -25,12 +24,8 @@ def generate_prompt_from_image(image_path):
     model = genai.GenerativeModel(
     model_name="gemini-1.5-flash",
     generation_config=generation_config,
-    # safety_settings = Adjust safety settings
-    # See https://ai.google.dev/gemini-api/docs/safety-settings
     )
-
-    # TODO Make these files available on the local file system
-    # You may need to update the file paths
+    
     files = [
     upload_to_gemini(image_path, mime_type="image/jpeg"),
     ]

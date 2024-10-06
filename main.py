@@ -4,31 +4,26 @@ import uvicorn
 import threading
 from db import db
 from tinydb import Query
-
+from process_images import process_images
 
 app, rt = fast_app()
 cardcss = """
     font-family: 'Arial Black', 'Arial Bold', Gadget, sans-serif;
-    perspective: 1500px;
     display: grid;
-    grid-template-columns: repeat(6, 1fr); /* 6 colunas na grid */
-    grid-gap: 20px;
+    gap: 0px 50px;
     justify-content: center;
     align-items: center;
     height: 100vh;
     padding: 20px;
+
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 """
 
-def card_3d_demo():
-    """This is a standalone isolated Python component.
-    Behavior and styling is scoped to the component."""
+def cards():
     
     def card_3d(text, background, amt, left_align, item):
-        # JS e CSS podem ser definidos inline ou em um arquivo
         scr = ScriptX('card3d.js', amt=amt)
         align = 'left' if left_align else 'right'
-        
-        # CSS para centralizar o botão dentro do card, ajustando a imagem PNG
         button_css = """
             display: flex;
             justify-content: center;
@@ -49,24 +44,13 @@ def card_3d_demo():
         
         sty = StyleX('card3d.css', background=f'url({background})', align=align)
         
-        # O botão agora redireciona para a rota /play, passando o nome da imagem como parâmetro
         return Div(A(Button(id='PREI', style=button_css), href=f'/play?name={item["image_name"]}'), text, Div(), sty, scr)
 
-    # Criação de múltiplos cards
     cards = []
     for item in db.all():
-        if item.get("music_path"):
+        if item.get("video_path"):
             cards.append(card_3d(f"", item["gif_path"], amt=1.5, left_align=True, item=item))
 
-    for item in db.all():
-        if item.get("music_path"):
-            cards.append(card_3d(f"", item["gif_path"], amt=1.5, left_align=True, item=item))
-
-    for item in db.all():
-        if item.get("music_path"):
-            cards.append(card_3d(f"", item["gif_path"], amt=1.5, left_align=True, item=item))
-
-    # Adiciona a imagem centralizada no início da página
     central_image_style = """
         display: flex;
         justify-content: center;
@@ -78,25 +62,54 @@ def card_3d_demo():
 
     return Div(central_image, *cards, style=cardcss)
 
-# Rota padrão
 @rt('/')
 def get():
-    return Div(card_3d_demo())
+    background_style = """
+        position: fixed;  /* Fixa a div do fundo para não se mover no scroll */
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background-image: url('background.gif');  /* Altere para o caminho do seu GIF */
+        background-size: cover;  /* Faz o fundo ocupar toda a tela */
+        background-repeat: no-repeat;  /* Não repetir a imagem */
+        z-index: -2;  /* Fica atrás de tudo */
+    """
 
-# Nova rota para a página de exibição /play
+    overlay_style = """
+        position: fixed;  /* Fixa a div de overlay para não se mover no scroll */
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background-color: rgba(0, 0, 0, 0.5);  /* Camada preta com 50% de opacidade */
+        z-index: -1;  /* Fica atrás dos cards */
+    """
+
+    cards_style = """
+        position: relative;  /* A div dos cards pode se mover normalmente */
+        z-index: 1;  /* Fica na frente das outras duas */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;  /* Alinha os cards em coluna */
+    """
+
+    return Div(
+        Div(name='background', style=background_style), 
+        Div(name='overlay', style=overlay_style), 
+        Div(cards(), style=cards_style),
+        name='main_container'
+    )
+
 @rt('/play')
 def play_page(req):
-    # Obtém o parâmetro "name" da URL
     image_name = req.query_params.get('name')
-
-    
-    # Busca o item no banco de dados com o nome da imagem
     item = db.get(Query().image_name == image_name)
     
     if not item:
         return Div("Item não encontrado")
 
-    # Cria a página com o fundo de GIF, vídeo e música
     video_style = """
         display: flex;
         justify-content: center;
@@ -104,11 +117,10 @@ def play_page(req):
         height: 100%;
         height:500px;
     """
+    music_path = item['video_path'].replace('videos', 'musics')
+    music_tag = f'<audio src="{music_path}" autoplay loop></audio>'
+    video_tag = Video(src=item['video_path'], autoplay=True, controls=False, loop=True, style=video_style)
     
-    music_tag = f'<audio src="{item["music_path"]}" autoplay loop></audio>'
-    video_tag = Video(src=item['video_path'], autoplay=True, controls=True, loop=True, style=video_style)
-    
-    # Retorna a página com o fundo sendo o gif_path
     return Div(
         NotStr(music_tag),
         video_tag,
@@ -123,31 +135,23 @@ def play_page(req):
         """
     )
 
-# Função que será executada a cada 5 segundos
 async def tarefa_periodica():
     print("Iniciando a tarefa periódica...")
     while True:
-        print("Função executada a cada 5 segundos")
-        await asyncio.sleep(5)  # Espera 5 segundos
+        await asyncio.sleep(86400)
+        process_images()
 
-# Função para rodar o servidor FastHTML usando Uvicorn diretamente em uma thread
 def start_serve():
     print("Iniciando o servidor...")
-    uvicorn.run("main:app", host="0.0.0.0", port=5001, reload=False)  # Desativando reload
+    uvicorn.run("main:app", host="0.0.0.0", port=5001, reload=False)
 
-# Função para iniciar o servidor em uma thread separada
 def run_server_in_thread():
     server_thread = threading.Thread(target=start_serve)
     server_thread.start()
 
-# Função principal para rodar o servidor e a tarefa periódica
 async def start_app():
-    # Inicia o servidor em uma thread separada
     run_server_in_thread()
-    
-    # Inicia a tarefa periódica
     await tarefa_periodica()
 
-# Executa o loop de eventos
 if __name__ == "__main__":
     asyncio.run(start_app())
